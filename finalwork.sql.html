@@ -1,0 +1,247 @@
+<html>
+<head>
+<title>finalwork.sql</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #808080; font-style: italic;}
+.s1 { color: #000000;}
+.s2 { color: #000080; font-weight: bold;}
+.s3 { color: #0000ff;}
+.s4 { color: #008000; font-weight: bold;}
+</style>
+</head>
+<body bgcolor="#ffffff">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#c0c0c0" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+finalwork.sql</font>
+</center></td></tr></table>
+<pre><span class="s0">-- year, quarter, month</span>
+<span class="s2">select</span>
+       <span class="s2">year</span>(l.date) <span class="s2">as </span>loan_year,
+       <span class="s2">quarter</span>(l.date) <span class="s2">as </span>loan_quarter,
+       <span class="s2">month</span>(l.date) <span class="s2">as </span>loan_month,
+       <span class="s2">count</span>(*) <span class="s2">as </span>total_loans,
+       sum(l.amount) <span class="s2">as </span>total_amount,
+       avg(l.amount) <span class="s2">as </span>average_amount
+<span class="s2">from </span>loan l
+<span class="s2">group by  </span>loan_year, loan_quarter, loan_month
+<span class="s2">order by </span>loan_year, loan_quarter, loan_month;
+<span class="s0">-- year, quarter</span>
+<span class="s2">select</span>
+       <span class="s2">year</span>(l.date) <span class="s2">as </span>loan_year,
+       <span class="s2">quarter</span>(l.date) <span class="s2">as </span>loan_quarter,
+       <span class="s2">count</span>(*) <span class="s2">as </span>total_loans,
+       sum(l.amount) <span class="s2">as </span>total_amount,
+       avg(l.amount) <span class="s2">as </span>average_amount
+<span class="s2">from </span>loan l
+<span class="s2">group by  </span>loan_year, loan_quarter
+<span class="s2">order by </span>loan_year, loan_quarter;
+<span class="s0">-- year</span>
+<span class="s2">select</span>
+       <span class="s2">year</span>(l.date) <span class="s2">as </span>loan_year,
+       <span class="s2">count</span>(*) <span class="s2">as </span>total_loans,
+       sum(l.amount) <span class="s2">as </span>total_amount,
+       avg(l.amount) <span class="s2">as </span>average_amount
+<span class="s2">from </span>loan l
+<span class="s2">group by  </span>loan_year
+<span class="s2">order by </span>loan_year
+;
+<span class="s0">-- splacené půjčky</span>
+<span class="s2">select</span>
+    <span class="s2">status</span>,
+    <span class="s2">count</span>(<span class="s2">status</span>)
+<span class="s2">from </span>loan l
+<span class="s2">group by </span><span class="s3">1</span>
+<span class="s2">order by </span><span class="s3">1</span>;
+<span class="s0">--  analysis of accounts , number of given loans desc, amount of given loans desc, average loan amount (only fully paid)</span>
+<span class="s2">WITH </span>cte <span class="s2">AS </span>(
+    <span class="s2">SELECT</span>
+       account_id,
+       sum(amount)   <span class="s2">as </span>loans_amount,
+       <span class="s2">count</span>(amount) <span class="s2">as </span>loans_count,
+       avg(amount)   <span class="s2">as </span>loans_avg
+    <span class="s2">FROM </span>loan
+    <span class="s2">WHERE status IN </span>(<span class="s4">'A'</span>, <span class="s4">'C'</span>)
+    <span class="s2">GROUP BY </span>account_id
+)
+<span class="s2">SELECT</span>
+    *,
+    <span class="s2">ROW_NUMBER</span>() <span class="s2">over </span>(<span class="s2">ORDER BY </span>loans_amount <span class="s2">DESC</span>) <span class="s2">AS </span>rank_loans_amount,
+    <span class="s2">ROW_NUMBER</span>() <span class="s2">over </span>(<span class="s2">ORDER BY </span>loans_count <span class="s2">DESC</span>) <span class="s2">AS </span>rank_loans_count
+<span class="s2">FROM </span>cte
+;
+<span class="s0">-- fully paid loans</span>
+<span class="s2">select </span>sum(amount) <span class="s2">as </span>loans_amount,
+       gender
+<span class="s2">from </span>loan l
+<span class="s2">join client </span>c <span class="s2">on </span>l.account_id = c.client_id
+<span class="s2">where </span>l.status <span class="s2">in </span>(<span class="s4">'A'</span>, <span class="s4">'C'</span>)
+<span class="s2">group by  </span>gender;
+
+<span class="s0">-- client analysis</span>
+<span class="s2">drop table if exists </span>tmp_analysis;
+<span class="s2">create temporary table </span>tmp_analysis <span class="s2">as</span>
+<span class="s2">select</span>
+    c.gender,
+    <span class="s3">2024 </span>- extract(<span class="s2">year from </span>birth_date) <span class="s2">as </span>age,
+    sum(l.amount) <span class="s2">as </span>loans_amount,
+    <span class="s2">count</span>(l.amount) <span class="s2">as </span>loans_count
+
+<span class="s2">from </span>loan l
+<span class="s2">inner join </span>financial8_99.account a <span class="s2">using </span>(account_id)
+<span class="s2">inner join </span>financial8_99.disp <span class="s2">as </span>d <span class="s2">using </span>(account_id)
+<span class="s2">inner join </span>financial8_99.client <span class="s2">as </span>c <span class="s2">using </span>(client_id)
+<span class="s2">where true</span>
+<span class="s2">and </span>l.status <span class="s2">in </span>(<span class="s4">'A'</span>, <span class="s4">'C'</span>)
+<span class="s2">and </span>d.type = <span class="s4">'OWNER'</span>
+<span class="s2">group by </span>c.gender, <span class="s3">2</span>
+;
+<span class="s2">select </span>gender,
+       sum(loans_count) <span class="s2">as </span>loans_count
+<span class="s2">from </span>tmp_analysis
+<span class="s2">group by </span>gender
+;
+<span class="s2">select </span>gender,
+       avg(age) <span class="s2">as </span>avg_age
+<span class="s2">from </span>tmp_analysis
+<span class="s2">group by </span>gender
+;
+<span class="s0">-- analysis 2 district</span>
+<span class="s2">drop table if exists </span>tmp_distrinct_analytics;
+<span class="s2">create temporary table </span>tmp_distrinct_analytics <span class="s2">as</span>
+<span class="s2">select</span>
+    a.district_id,
+    <span class="s2">count</span>(<span class="s2">distinct </span>c.client_id) <span class="s2">as </span>customer_amount,
+    sum(l.amount) <span class="s2">as </span>loans_amount,
+    <span class="s2">count</span>(l.amount)<span class="s2">as </span>loans_count
+<span class="s2">from </span>loan l
+<span class="s2">inner join account </span>a <span class="s2">using </span>(account_id)
+<span class="s2">inner join </span>disp <span class="s2">as </span>d <span class="s2">using </span>(account_id)
+<span class="s2">inner join client as </span>c <span class="s2">using </span>(client_id)
+<span class="s2">where true</span>
+<span class="s2">and </span>l.status <span class="s2">in </span>(<span class="s4">'A'</span>, <span class="s4">'C'</span>)
+<span class="s2">AND </span>d.type = <span class="s4">'OWNER'</span>
+<span class="s2">group by </span>a.district_id
+;
+<span class="s0">-- oblast s nejvíce úvěry</span>
+<span class="s2">select </span>*
+<span class="s2">from </span>tmp_distrinct_analytics
+<span class="s2">order by </span>customer_amount <span class="s2">desc</span>
+<span class="s2">limit </span><span class="s3">1</span>;
+<span class="s2">select </span>*
+<span class="s2">from </span>tmp_distrinct_analytics
+<span class="s2">order by  </span>loans_amount <span class="s2">desc</span>
+<span class="s2">limit </span><span class="s3">1</span>
+;
+<span class="s0">-- client analysis part 3</span>
+<span class="s2">WITH </span>cte <span class="s2">AS </span>(
+    <span class="s2">SELECT </span>d2.district_id,
+
+           <span class="s2">count</span>(<span class="s2">distinct </span>c.client_id) <span class="s2">as </span>customer_amount,
+           sum(l.amount)               <span class="s2">as </span>loans_given_amount,
+           <span class="s2">count</span>(l.amount)             <span class="s2">as </span>loans_given_count
+    <span class="s2">FROM</span>
+            loan <span class="s2">as </span>l
+        <span class="s2">INNER JOIN</span>
+            <span class="s2">account </span>a <span class="s2">using </span>(account_id)
+        <span class="s2">INNER JOIN</span>
+            disp <span class="s2">as </span>d <span class="s2">using </span>(account_id)
+        <span class="s2">INNER JOIN</span>
+            <span class="s2">client as </span>c <span class="s2">using </span>(client_id)
+        <span class="s2">INNER JOIN</span>
+            district <span class="s2">as </span>d2 <span class="s2">on</span>
+                c.district_id = d2.district_id
+    <span class="s2">WHERE True</span>
+      <span class="s2">AND </span>l.status <span class="s2">IN </span>(<span class="s4">'A'</span>, <span class="s4">'C'</span>)
+      <span class="s2">AND </span>d.type = <span class="s4">'OWNER'</span>
+    <span class="s2">GROUP BY </span>d2.district_id
+)
+<span class="s2">SELECT</span>
+    *,
+    loans_given_amount / SUM(loans_given_amount) <span class="s2">OVER </span>() <span class="s2">AS share</span>
+<span class="s2">FROM </span>cte
+<span class="s2">ORDER BY share DESC</span>
+<span class="s2">limit </span><span class="s3">5</span>
+;
+<span class="s0">-- selection part 1</span>
+<span class="s2">SELECT </span>c.client_id,
+
+           sum(amount - payments) <span class="s2">as </span>client_balance,
+           <span class="s2">count</span>(loan_id) <span class="s2">as </span>loans_amount
+    <span class="s2">FROM</span>
+            loan <span class="s2">as </span>l
+        <span class="s2">INNER JOIN</span>
+            <span class="s2">account </span>a <span class="s2">using </span>(account_id)
+        <span class="s2">INNER JOIN</span>
+            disp <span class="s2">as </span>d <span class="s2">using </span>(account_id)
+        <span class="s2">INNER JOIN</span>
+            <span class="s2">client as </span>c <span class="s2">using </span>(client_id)
+    <span class="s2">WHERE True</span>
+      <span class="s2">AND </span>l.status <span class="s2">IN </span>(<span class="s4">'A'</span>, <span class="s4">'C'</span>)
+      <span class="s2">AND </span>d.type = <span class="s4">'OWNER'</span>
+    <span class="s2">GROUP BY </span>c.client_id
+    <span class="s2">having</span>
+        sum(amount - payments) &gt; <span class="s3">1000</span>
+        <span class="s2">and count</span>(loan_id) &gt; <span class="s3">5</span>
+;
+<span class="s0">-- expiring cards</span>
+<span class="s2">WITH </span>cte <span class="s2">AS </span>(
+    <span class="s2">SELECT</span>
+        c2.client_id,
+        c.card_id,
+        DATE_ADD(c.issued, <span class="s2">interval </span><span class="s3">3 </span><span class="s2">year</span>) <span class="s2">as </span>expiration_date,
+        d2.A3 <span class="s2">as </span>client_adress
+    <span class="s2">FROM</span>
+            card <span class="s2">as </span>c
+        <span class="s2">INNER JOIN</span>
+            disp <span class="s2">as </span>d <span class="s2">using </span>(disp_id)
+        <span class="s2">INNER JOIN</span>
+            <span class="s2">client as </span>c2 <span class="s2">using </span>(client_id)
+        <span class="s2">INNER JOIN</span>
+            district <span class="s2">as </span>d2 <span class="s2">using </span>(district_id)
+)
+<span class="s2">SELECT </span>*
+<span class="s2">FROM </span>cte
+;
+<span class="s2">CREATE TABLE </span>cards_at_expiration
+(
+    client_id       <span class="s2">int                      not null</span>,
+    card_id         <span class="s2">int default </span><span class="s3">0            </span><span class="s2">not null</span>,
+    expiration_date <span class="s2">date                     null</span>,
+    A3              <span class="s2">varchar</span>(<span class="s3">15</span>) <span class="s2">charset </span>utf8 <span class="s2">not null</span>,
+    generated_for_date <span class="s2">date                     null</span>
+);
+
+<span class="s2">DELIMITER </span>$$
+<span class="s2">DROP PROCEDURE IF EXISTS </span>generate_cards_at_expiration_report;
+<span class="s2">CREATE PROCEDURE </span>generate_cards_at_expiration_report(p_date <span class="s2">DATE</span>)
+<span class="s2">BEGIN</span>
+    <span class="s2">TRUNCATE TABLE </span>cards_at_expiration;
+    <span class="s2">INSERT INTO </span>cards_at_expiration
+    <span class="s2">WITH </span>cte <span class="s2">AS </span>(
+        <span class="s2">SELECT </span>c2.client_id,
+               c.card_id,
+               date_add(c.issued, <span class="s2">interval </span><span class="s3">3 </span><span class="s2">year</span>) <span class="s2">as </span>expiration_date,
+               d2.A3
+        <span class="s2">FROM</span>
+            card <span class="s2">as </span>c
+                 <span class="s2">INNER JOIN</span>
+             disp <span class="s2">as </span>d <span class="s2">using </span>(disp_id)
+                 <span class="s2">INNER JOIN</span>
+             <span class="s2">client as </span>c2 <span class="s2">using </span>(client_id)
+                 <span class="s2">INNER JOIN</span>
+             district <span class="s2">as </span>d2 <span class="s2">using </span>(district_id)
+    )
+    <span class="s2">SELECT</span>
+           *,
+           p_date
+    <span class="s2">FROM </span>cte
+    <span class="s2">WHERE </span>p_date <span class="s2">BETWEEN </span>DATE_ADD(expiration_date, <span class="s2">INTERVAL </span>-<span class="s3">7 </span><span class="s2">DAY</span>) <span class="s2">AND </span>expiration_date
+    ;
+<span class="s2">END </span>$$
+<span class="s2">DELIMITER </span>;
+<span class="s2">call </span>generate_cards_at_expiration_report(<span class="s4">'2001-01-01'</span>);
+<span class="s2">select </span>* <span class="s2">from </span>cards_at_expiration;</pre>
+</body>
+</html>
